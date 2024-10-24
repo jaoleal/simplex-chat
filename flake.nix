@@ -4,7 +4,6 @@
 
   inputs.haskellNix.url = "github:input-output-hk/haskell.nix/armv7a";
   inputs.nixpkgs.follows = "haskellNix/nixpkgs-2305";
-  inputs.mac2ios.url = "github:zw3rk/mobile-core-tools";
   inputs.hackage = {
     url = "github:input-output-hk/hackage.nix";
     flake = false;
@@ -14,12 +13,12 @@
 
 
 
-  outputs = { self, haskellNix, nixpkgs, flake-utils, mac2ios, ... }:
+  outputs = { self, haskellNix, ... }:
 
 
     let
 
-    systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
+    system = "x86_64-linux";
 
     buildSimplexLib = { extra-modules ? [], pkgs' ? haskellNix.legacyPackages.x86_64-linux, ... }: pkgs'.haskell-nix.project {
       compiler-nix-name = "ghc963";
@@ -28,7 +27,7 @@
       # If the stack.yaml was dropped, this would not be necessary.
       projectFileName = "cabal.project";
 
-      # J this was calling the pkgs out of the function ??? wtf
+
       src = pkgs'.haskell-nix.haskellLib.cleanGit {
         name = "simplex-chat";
         src = ./.;
@@ -37,7 +36,7 @@
       modules = [
       ({ pkgs, lib, ...}: lib.mkIf (!pkgs.stdenv.hostPlatform.isWindows) {
         # This patch adds `dl` as an extra-library to direct-sqlciper, which is needed
-        # on pretty much all unix platforms, but then blows up on windows m(
+        # on pretty much all unix platforms, but then blows up on windows
         packages.direct-sqlcipher.patches = [ ./scripts/nix/direct-sqlcipher-2.3.27.patch ];
       })
       ({ pkgs,lib, ... }: lib.mkIf (pkgs.stdenv.hostPlatform.isAndroid) {
@@ -45,16 +44,23 @@
       })] ++ extra-modules;
     };
 
-    in
-    flake-utils.lib.eachSystem systems (system:
-        {
+    in {
         packages =
-        let
-            systemDefinedPkgs = haskellNix.legacyPackages.${system};
-            # by default we don't need to pass extra-modules.
-            simplexPureBuild = (buildSimplexLib { extra-modules = []; pkgs' = systemDefinedPkgs; });
-        in {
-            "lib:simplex-chat" = simplexPureBuild.simplex-chat.components.library;
+                let
+                    systemDefinedPkgs = haskellNix.legacyPackages.${system};
+                    # by default we don't need to pass extra-modules.
+                    simplexPureBuild = (buildSimplexLib { extra-modules = []; pkgs' = systemDefinedPkgs; });
+                in {
+                    ${system}."lib:simplex-chat" = simplexPureBuild.simplex-chat.components.library;
+
+                    # Here you can specify more builds and call with other patches.
+                    "x86_64-darwin"."lib:simplex-chat" = (buildSimplexLib {
+                        extra-modules =
+                        [
+                            #patch your changes here
+                        ];
+                        pkgs' = haskellNix.legacyPackages."x86_64-darwin";
+                });
         };
-    });
+    };
 }
