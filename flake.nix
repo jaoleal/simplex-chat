@@ -51,12 +51,10 @@
         packages =
         let
             systemDefinedPkgs = haskellNix.legacyPackages.${system};
-
             # by default we don't need to pass extra-modules.
-            simplexPureBuild = buildSimplexLib { extra-modules = []; pkgs' = systemDefinedPkgs; };
-
+            simplexPureBuild = (buildSimplexLib { extra-modules = []; pkgs' = systemDefinedPkgs; });
         in {
-            "lib:simplex-chat" = (simplexPureBuild systemDefinedPkgs ).simplex-chat.components.library;};
-
+            "lib:simplex-chat" = simplexPureBuild.simplex-chat.components.library;
+        };
     });
 }
